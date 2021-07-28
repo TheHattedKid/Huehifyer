@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -38,7 +39,7 @@ public class Main extends Application {
     //LMAO
 
 
-    String input;
+    java.util.List<String> input;
     String output;
     public TextField width;
     public TextField height;
@@ -104,50 +105,62 @@ public class Main extends Application {
 
     @FXML
     public void huehify(ActionEvent actionEvent) {
-        Platform.runLater(() -> {
-            if(!new File(System.getProperty("user.home") + File.separatorChar + ".huehs").isDirectory()) {
-                System.out.println("Hueh folder does not exist! Creating one...");
-                new File(System.getProperty("user.home") + File.separatorChar + ".huehs").mkdirs();
-                try {
-                    for (int i = 0; i < 6; i++) {
-                        //you may do a custom thing later on
-                        BufferedImage bi = ImageIO.read(new URL("https://devhonk.github.io/huehs/" + i + ".png"));
-                        ImageIO.write(
-                                bi,
-                                "PNG",
-                                new File(
-                                        System.getProperty("user.home") +
-                                                File.separatorChar +
-                                                ".huehs" +
-                                                File.separatorChar +
-                                                i +
-                                                ".png"
-                                )
-                        );
-                    }
+        new Thread(() -> {
+            Platform.runLater(() -> {
+                if (!new File(System.getProperty("user.home") + File.separatorChar + ".huehs").isDirectory()) {
+                    System.out.println("Hueh folder does not exist! Creating one...");
+                    new File(System.getProperty("user.home") + File.separatorChar + ".huehs").mkdirs();
+                    try {
+                        for (int i = 0; i < 6; i++) {
+                            //you may do a custom thing later on
+                            BufferedImage bi = ImageIO.read(new URL("https://devhonk.github.io/huehs/" + i + ".png"));
+                            ImageIO.write(
+                                    bi,
+                                    "PNG",
+                                    new File(
+                                            System.getProperty("user.home") +
+                                                    File.separatorChar +
+                                                    ".huehs" +
+                                                    File.separatorChar +
+                                                    i +
+                                                    ".png"
+                                    )
+                            );
+                        }
 
-                } catch (Exception e) {
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                int w = Integer.parseInt(width.getText());
+                int h = Integer.parseInt(height.getText());
+                try {
+                    if (input.size() == 1) {
+                        conv(input.get(0), w, h, output,
+                                System.getProperty("user.home") +
+                                        File.separatorChar +
+                                        ".huehs" +
+                                        File.separatorChar);
+                    } else {
+                        for (int i = 0; i < input.size(); i++) {
+                            conv(input.get(i), w, h, new File(output).getParentFile().getPath() + File.separatorChar + (new File(output).getName().split("\\.[^\\.]")[0] + i) + (new File(output).getName().endsWith(".png") || new File(output).getName().endsWith(".PNG") ? "" : ".png"),
+                                    System.getProperty("user.home") +
+                                            File.separatorChar +
+                                            ".huehs" +
+                                            File.separatorChar);
+                        }
+                    }
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-
-            int w = Integer.parseInt(width.getText());
-            int h = Integer.parseInt(height.getText());
-            try {
-                conv(input, w, h, output,
-                    System.getProperty("user.home") +
-                            File.separatorChar +
-                            ".huehs" +
-                            File.separatorChar);
-            } catch (IOException e) {
-                e.printStackTrace();
-         }
-        });
+            });
+        }, "Output").start();
     }
 
     public void outSelect(ActionEvent actionEvent) {
         final FileChooser fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("png"));
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG", "*.png", "*.PNG"));
         File file = fileChooser.showSaveDialog(primaryStage);
         if (file != null) {
             java.util.List<File> files = Collections.singletonList(file);
@@ -157,11 +170,18 @@ public class Main extends Application {
 
     public void inSelect(ActionEvent actionEvent) {
         final FileChooser fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("png", "jpg", "gif", "jpeg", "bmp"));
-        File file = fileChooser.showOpenDialog(primaryStage);
-        if (file != null) {
-            java.util.List<File> files = Arrays.asList(file);
-            input = files.get(0).getPath();
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image files",
+                "*.png", "*.PNG",
+                "*.jpg", "*.JPG", "*.jpeg", "*.JPEG",
+                "*.gif", "*.GIF",
+                "*.bmp", "*.BMP"
+        ));
+        java.util.List<File> files = fileChooser.showOpenMultipleDialog(null);
+        if (files != null) {
+            input = new ArrayList<>();
+            for (int i = 0; i < files.size(); i++) {
+                input.add(files.get(i).getPath());
+            }
         }
     }
 }
