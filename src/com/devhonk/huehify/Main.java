@@ -15,6 +15,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import jdk.nashorn.internal.scripts.JO;
 
 
 import javax.imageio.ImageIO;
@@ -269,12 +270,15 @@ public class Main extends Application {
 				return file.getAbsolutePath();
 			}
 		}
-		System.err.println("Oops, FFMPEG isnt here????");
-		throw new IllegalArgumentException();
+		throw new IllegalArgumentException("Oops, FFMPEG isnt here????");
 	}
     public static void main(String[] args) throws IOException {
     	//black magic code that is totally supposed to run both on windows or linux
-	    ffmpeg = findExecutableOnPath("ffmpeg" + (System.getProperty("os.name").contains("win") ? ".exe" : ""));
+	    try {
+	    	ffmpeg = findExecutableOnPath("ffmpeg" + (System.getProperty("os.name").contains("win") ? ".exe" : ""));
+	    } catch(Exception e) {
+		    ffmpeg = JOptionPane.showInputDialog("FFMPEG isn't found! Please type the Path");
+	    }
         /*for (int i = 0; i < 8; i++) {
 
             String path = "/home/hatkid/Bureau/grayhueh/color/" + String.format("%3s", Integer.toBinaryString(i)).replace(" ", "0") + ".png";

@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Huehifyer:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Huehifyer_jar</output-path>
+    <root id="archive" name="Huehifyer.jar">
+      <element id="module-output" name="Huehifyer" />
+    </root>
+  </artifact>
+</component>
