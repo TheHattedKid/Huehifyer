@@ -2,25 +2,29 @@ package com.devhonk.huehify;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,12 +34,14 @@ import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 
 class Dither {
+
 	static class C3 {
 		int r, g, b;
 
@@ -152,8 +158,10 @@ class Dither {
 	}
 }
 public class Main extends Application {
-
-    //GET READY TO SEE MY BAD CODE
+	static boolean video = false;
+	static boolean color = false;
+	public ChoiceBox mode;
+	//GET READY TO SEE MY BAD CODE
     //NO BUT REALLY
     //YOU HATH BEEN WARNED
     //now i shall add this long
@@ -169,6 +177,9 @@ public class Main extends Application {
     String output;
     public TextField width;
     public TextField height;
+
+    static String ffmpeg = "";
+    static String ffprobe = "";
 
     //Source: Stackoverflow
     private static BufferedImage getScaledImage(Image srcImg, int w, int h) {
@@ -191,8 +202,29 @@ public class Main extends Application {
         //Return the image used to create the Graphics2D
         return resizedImg;
     }
+	public static void convMono(String in, int w, int h, String outF) throws IOException {
+		BufferedImage bi = ImageIO.read(new File(in));
 
-    public static void conv(String in, int w, int h, String outF, String paletteFolder) throws IOException {
+		BufferedImage scaledImg = getScaledImage(bi, w, h);
+		BufferedImage out = new BufferedImage(w*60, h*40, BufferedImage.TYPE_INT_ARGB);
+
+		Graphics2D g = (Graphics2D) out.getGraphics();
+
+		for (int y = 0; y < scaledImg.getHeight(); y++) {
+			for (int x = 0; x < scaledImg.getWidth(); x++) {
+				Color oc = new Color(scaledImg.getRGB(x, y));
+				double avg = ((oc.getRed() + oc.getBlue() + oc.getGreen()) / 3.0) / 255.0;
+				int c = (int) Math.floor(avg * (6 - 1));
+				g.drawImage(ImageIO.read(new File(System.getProperty("user.home") +
+						File.separatorChar +
+						".huehs" +
+						File.separatorChar + c + ".png")), x*60, y*40, null);
+			}
+		}
+		ImageIO.write(out, "PNG", new File(outF));
+	}
+    public static void conv(String in, int w, int h, String outF, boolean color) throws IOException {
+    	if(!color) { convMono(in, w, h, outF); return; }
         System.out.println("In: " + in);
         BufferedImage bi = ImageIO.read(new File(in));
 
@@ -208,7 +240,12 @@ public class Main extends Application {
                 boolean gr = oc.getGreen() > 127;
                 boolean bl = oc.getBlue() > 127;
                 String c = String.format("%d%d%d", re ? 1 : 0, gr ? 1 : 0, bl ? 1 : 0);
-                g.drawImage(ImageIO.read(new File(paletteFolder + c + ".png")), x*60, y*40, null);
+                g.drawImage(ImageIO.read(new File(System.getProperty("user.home") +
+		                File.separatorChar +
+		                ".huehs" +
+		                File.separatorChar +
+		                "colors" +
+		                File.separatorChar + c + ".png")), x*60, y*40, null);
             }
         }
         ImageIO.write(out, "PNG", new File(outF));
@@ -225,8 +262,19 @@ public class Main extends Application {
         primaryStage.getIcons().add(new javafx.scene.image.Image(Main.class.getResourceAsStream("hueh.png")));
         primaryStage.show();
     }
-
+	public static String findExecutableOnPath(String name) {
+		for (String dirname : System.getenv("PATH").split(File.pathSeparator)) {
+			File file = new File(dirname, name);
+			if (file.isFile() && file.canExecute()) {
+				return file.getAbsolutePath();
+			}
+		}
+		System.err.println("Oops, FFMPEG isnt here????");
+		throw new IllegalArgumentException();
+	}
     public static void main(String[] args) throws IOException {
+    	//black magic code that is totally supposed to run both on windows or linux
+	    ffmpeg = findExecutableOnPath("ffmpeg" + (System.getProperty("os.name").contains("win") ? ".exe" : ""));
         /*for (int i = 0; i < 8; i++) {
 
             String path = "/home/hatkid/Bureau/grayhueh/color/" + String.format("%3s", Integer.toBinaryString(i)).replace(" ", "0") + ".png";
@@ -268,41 +316,102 @@ public class Main extends Application {
                         e.printStackTrace();
                     }
                 }
-
-                int w = Integer.parseInt(width.getText());
-                int h = Integer.parseInt(height.getText());
-                try {
-                    if (input.size() == 1) {
-                        conv(input.get(0), w, h, output,
-                                System.getProperty("user.home") +
-                                        File.separatorChar +
-                                        ".huehs" +
-                                        File.separatorChar +
-                                        "colors" +
-                                        File.separatorChar
-                                );
-                    } else {
-                        for (int i = 0; i < input.size(); i++) {
-                            conv(input.get(i), w, h, new File(output).getParentFile().getPath() + File.separatorChar + (new File(output).getName().split("\\.[^\\.]")[0] + i) + (new File(output).getName().endsWith(".png") || new File(output).getName().endsWith(".PNG") ? "" : ".png"),
-                                    System.getProperty("user.home") +
-                                            File.separatorChar +
-                                            ".huehs" +
-                                            File.separatorChar +
-                                            "colors" +
-                                            File.separatorChar
-                                    );
-                        }
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+	            if(!video) conv();
+                else {
+                	//Step 0: Making temporary file
+		            File folder = null;
+		            try {
+			            folder = Files.createTempDirectory("huehifyer").toFile();
+		            } catch (IOException e) {
+			            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+			            errorAlert.setHeaderText("Cannot create temporary folder");
+			            errorAlert.setContentText("Cannot make a temporary file for video mode. Exiting");
+			            errorAlert.showAndWait();
+			            System.exit(1);
+		            }
+		            //Step 1: extracting frames
+		            Process p = null;
+		            try {
+			            System.out.printf("%s/%%d.png\n", folder.getPath());
+			            p = Runtime.getRuntime().exec(String.format("%s -r 30 -i %s %s/%%d.png -hide_banner", ffmpeg, input.get(0), folder.getPath()));
+			            String result = new BufferedReader(new InputStreamReader(p.getErrorStream()))
+					            .lines().collect(Collectors.joining("\n"));
+			            System.out.println(result);
+		            } catch (IOException e) {
+			            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+			            errorAlert.setHeaderText("Cannot create temporary file");
+			            errorAlert.setContentText("Cannot make a temporary file for video mode. Exiting");
+			            errorAlert.showAndWait();
+			            System.exit(1);
+		            }
+		            try {
+			            int status = p.waitFor();
+			            if(status != 0) {
+				            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+				            errorAlert.setHeaderText("FFMPEG exit code is non-null");
+				            errorAlert.setContentText("Oops. Check out the exit error to know the FFMPEG exit error. Exiting");
+				            errorAlert.showAndWait();
+				            System.exit(status);
+			            }
+		            } catch (InterruptedException e) {
+			            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+			            errorAlert.setHeaderText("Cannot retrieve FFMPEG exit code");
+			            errorAlert.setContentText("Cannot retrieve FFMPEG exit code. Exiting");
+			            errorAlert.showAndWait();
+			            System.exit(1);
+		            }
+		            int frames = folder.list().length;
+		            //step 2: convert all frames into hueh
+		            for (int i = 0; i < frames; i++) {
+			            try {
+				            conv(String.format("%s/%d.png", folder.getPath(), i + 1), Integer.parseInt(width.getText()), Integer.parseInt(height.getText()), String.format("%s/hueh-%d.png", folder.getPath(), i + 1), color);
+				            new File(String.format("%s/%d.png", folder.getPath(), i + 1)).delete();
+			            } catch (IOException e) {
+				            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+				            errorAlert.setHeaderText("Cannot huehify a frame");
+				            errorAlert.setContentText("You may have not enough disk space for that. Exiting...");
+				            errorAlert.showAndWait();
+				            System.exit(i + 1);
+			            }
+		            }
+		            //step 3: convert all huehs into video
+		            try {
+			            p = Runtime.getRuntime().exec(String.format("%s -i %s/hueh-%%d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p %s", ffmpeg, folder.getPath(), output));
+			            String result = new BufferedReader(new InputStreamReader(p.getErrorStream()))
+					            .lines().collect(Collectors.joining("\n"));
+			            System.out.println(result);
+		            } catch (IOException e) {
+			            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+			            errorAlert.setHeaderText("Cannot create temporary file");
+			            errorAlert.setContentText("Cannot make a temporary file for video mode. Exiting");
+			            errorAlert.showAndWait();
+			            System.exit(1);
+		            }
+		            folder.delete();
+	            }
             });
         }, "Output").start();
+        
+    }
+    public void conv() {
+	    int w = Integer.parseInt(width.getText());
+	    int h = Integer.parseInt(height.getText());
+	    try {
+		    if (input.size() == 1) {
+			    conv(input.get(0), w, h, output, color);
+		    } else {
+			    for (int i = 0; i < input.size(); i++) {
+				    conv(input.get(i), w, h, new File(output).getParentFile().getPath() + File.separatorChar + (new File(output).getName().split("\\.[^\\.]")[0] + i) + (new File(output).getName().endsWith(".png") || new File(output).getName().endsWith(".PNG") ? "" : ".png"), color);
+			    }
+		    }
+	    } catch (IOException e) {
+		    e.printStackTrace();
+	    }
     }
 
     public void outSelect(ActionEvent actionEvent) {
         final FileChooser fileChooser = new FileChooser();
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG", "*.png", "*.PNG"));
+        fileChooser.getExtensionFilters().add(!video ? new FileChooser.ExtensionFilter("PNG", "*.png", "*.PNG") : new FileChooser.ExtensionFilter("Video", "*.mp4", "*.MP4"));
         File file = fileChooser.showSaveDialog(primaryStage);
         if (file != null) {
             java.util.List<File> files = Collections.singletonList(file);
@@ -311,6 +420,7 @@ public class Main extends Application {
     }
 
     public void inSelect(ActionEvent actionEvent) {
+    	video = false;
         final FileChooser fileChooser = new FileChooser();
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image files",
                 "*.png", "*.PNG",
@@ -318,12 +428,28 @@ public class Main extends Application {
                 "*.gif", "*.GIF",
                 "*.bmp", "*.BMP"
         ));
+	    fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Videos",
+			    "*.mp4", "*.MP4",
+			            "*.mov", "*.MOV",
+			            "*.mkv", "*.MKV"
+	    ));
         java.util.List<File> files = fileChooser.showOpenMultipleDialog(null);
         if (files != null) {
             input = new ArrayList<>();
-            for (int i = 0; i < files.size(); i++) {
-                input.add(files.get(i).getPath());
-            }
+	        if(files.get(0).getPath().toLowerCase().endsWith(".mp4") || files.get(0).getPath().toLowerCase().endsWith(".mov") || files.get(0).getPath().toLowerCase().endsWith(".mkv"))
+		        video = true;
+
+	        for (int i = 0; i < files.size(); i++) {
+	        	input.add(files.get(i).getPath());
+	        }
         }
     }
+	int c = 0;
+	@FXML
+	public void initialize() throws Exception {
+		mode.getItems().addAll("Monochrome", "Color");
+		mode.setOnAction((a) -> {
+			color = mode.getValue().equals("Color");
+		});
+	}
 }
